@@ -113,6 +113,11 @@ ALTER TABLE material_requests ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP;
 ALTER TABLE material_requests ADD COLUMN IF NOT EXISTS decided_by INTEGER REFERENCES users(user_id);
 ALTER TABLE material_requests ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(product_id);
 
+-- Extra product detail commonly found in a real inventory spreadsheet
+ALTER TABLE products ADD COLUMN IF NOT EXISTS reorder_level INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(10,2);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS hazard_class TEXT;
+
 -- A request can now hold multiple line items, so the old single item_name/quantity
 -- columns on material_requests are no longer required per row.
 ALTER TABLE material_requests ALTER COLUMN item_name DROP NOT NULL;
