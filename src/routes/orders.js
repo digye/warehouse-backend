@@ -53,6 +53,24 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PATCH /orders/:id/issue - marks an order as physically handed over to whoever
+// requested it (e.g. a technician picking up what they asked for). Stock was
+// already deducted earlier (when the order was created), so this doesn't touch
+// inventory - it's just a record of "this was actually received."
+router.patch('/:id/issue', async (req, res) => {
+  const result = await pool.query(
+    `UPDATE orders
+     SET status = 'issued', issued_at = now(), issued_by = $1
+     WHERE order_id = $2 AND status != 'issued'
+     RETURNING *`,
+    [req.user.user_id, req.params.id]
+  );
+  if (!result.rows.length) {
+    return res.status(409).json({ error: 'Order not found or already marked as issued' });
+  }
+  res.json(result.rows[0]);
+});
+
 // PATCH /orders/:id - update status (e.g. packed, shipped)
 router.patch('/:id', async (req, res) => {
   const { status } = req.body;

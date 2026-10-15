@@ -64,7 +64,7 @@ async function withAvailability(db, request) {
 router.get('/items', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT product_id, name, sku, unit_of_measure FROM products ORDER BY name'
+      'SELECT product_id, name, item_type, sku, unit_of_measure FROM products ORDER BY name, item_type'
     );
     res.json(result.rows);
   } catch (err) {
@@ -170,11 +170,12 @@ router.post('/:id/approve', requireAuth, requireRole('admin'), async (req, res) 
       }
     }
 
-    // Approving a request fulfills it immediately (stock is already deducted above),
-    // so it's recorded as a completed order rather than a pending one.
+    // Stock is deducted the moment a request is approved, but the order stays
+    // "pending" until someone on the Orders page marks it issued - that's the
+    // confirmation that the technician actually picked the items up.
     const orderRes = await client.query(
       `INSERT INTO orders (customer_or_destination, status, order_date)
-       VALUES ($1, 'fulfilled', CURRENT_DATE) RETURNING order_id`,
+       VALUES ($1, 'pending', CURRENT_DATE) RETURNING order_id`,
       [`Maintenance request — ${request.requester_name} (${request.warehouse_name})`]
     );
     const orderId = orderRes.rows[0].order_id;
