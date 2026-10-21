@@ -72,6 +72,32 @@ router.get('/items', async (req, res) => {
   }
 });
 
+// GET /material-requests/warehouses - public list of warehouses for the request
+// form's dropdown, so picking one can auto-fill its email
+router.get('/warehouses', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT warehouse_id, name, email FROM warehouses ORDER BY name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /material-requests/requesters - public list of people who've submitted a
+// request before, for the "Name" dropdown. Grows automatically as people submit.
+router.get('/requesters', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT requester_id, name, email FROM requesters ORDER BY name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /material-requests - the manager's list, each with its line items and a live stock check
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -282,6 +308,14 @@ router.post('/', async (req, res) => {
       );
       savedItems.push(itemRes.rows[0]);
     }
+
+    // Remember this requester (by email) so they appear in the dropdown next time
+    await client.query(
+      `INSERT INTO requesters (name, email)
+       SELECT $1, $2
+       WHERE NOT EXISTS (SELECT 1 FROM requesters WHERE lower(email) = lower($2))`,
+      [requester_name, requester_email]
+    );
 
     await client.query('COMMIT');
 

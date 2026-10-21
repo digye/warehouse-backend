@@ -13,10 +13,10 @@ router.get('/', async (req, res) => {
 
 // POST /warehouses
 router.post('/', async (req, res) => {
-  const { name, address } = req.body;
+  const { name, address, email } = req.body;
   const result = await pool.query(
-    'INSERT INTO warehouses (name, address) VALUES ($1, $2) RETURNING *',
-    [name, address]
+    'INSERT INTO warehouses (name, address, email) VALUES ($1, $2, $3) RETURNING *',
+    [name, address, email]
   );
   res.status(201).json(result.rows[0]);
 });

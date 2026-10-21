@@ -5,17 +5,35 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 
-// GET /inventory - current stock across all locations, joined with product/location names
+// GET /inventory - one row per product, with total quantity and a breakdown of
+// how much sits in each warehouse (summed across that warehouse's locations/bins)
 router.get('/', async (req, res) => {
-  const result = await pool.query(`
-    SELECT i.inventory_id, p.name AS product, p.sku, l.aisle, l.shelf, l.bin,
-           i.quantity, i.last_updated
-    FROM inventory i
-    JOIN products p ON p.product_id = i.product_id
-    JOIN locations l ON l.location_id = i.location_id
-    ORDER BY p.name
+  const products = await pool.query(`
+    SELECT p.product_id, p.name, p.item_type, p.sku, p.unit_of_measure,
+           COALESCE(SUM(i.quantity), 0) AS total_quantity
+    FROM products p
+    LEFT JOIN inventory i ON i.product_id = p.product_id
+    GROUP BY p.product_id
+    ORDER BY p.name, p.item_type
   `);
-  res.json(result.rows);
+
+  const breakdown = await pool.query(`
+    SELECT i.product_id, w.warehouse_id, w.name AS warehouse_name,
+           SUM(i.quantity) AS quantity
+    FROM inventory i
+    JOIN locations l ON l.location_id = i.location_id
+    JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+    WHERE i.quantity > 0
+    GROUP BY i.product_id, w.warehouse_id, w.name
+    ORDER BY w.name
+  `);
+
+  const byProduct = {};
+  for (const row of breakdown.rows) {
+    (byProduct[row.product_id] ??= []).push(row);
+  }
+
+  res.json(products.rows.map((p) => ({ ...p, warehouses: byProduct[p.product_id] || [] })));
 });
 
 // GET /inventory/location/:locationId - stock at one location
